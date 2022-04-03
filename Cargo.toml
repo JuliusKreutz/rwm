@@ -15,7 +15,6 @@ strip = true
 panic = "abort"
 
 [dependencies]
-pango = "0.15.10"
 pangocairo = "0.15.1"
 
 [dependencies.xcb]

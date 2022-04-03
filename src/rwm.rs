@@ -695,7 +695,7 @@ impl Rwm {
                     self.monitors
                         .pop()
                         .unwrap()
-                        .transfer(&self.connection, &mut self.monitors[monitors_len - 1]);
+                        .transfer(&self.connection, &mut self.monitors[0]);
                 }
             }
         } else {

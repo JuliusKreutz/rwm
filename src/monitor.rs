@@ -67,6 +67,10 @@ impl Monitor {
         width: u16,
         height: u16,
     ) {
+        self.bar.clean(connection);
+        self.bar = Bar::new(connection, x, y, width);
+        self.bar.init();
+
         for client in &mut self
             .tags
             .iter_mut()
@@ -438,6 +442,8 @@ impl Monitor {
     }
 
     pub fn transfer(self, connection: &xcb::Connection, monitor: &mut Self) {
+        self.bar.clean(connection);
+
         for tag in self.tags {
             for mut client in tag {
                 if client.floating {
@@ -486,11 +492,9 @@ impl Monitor {
             if client.floating {
                 if value_mask.intersects(x::ConfigWindowMask::WIDTH) {
                     client.width = width;
-                    println!("Width {}", width);
                 }
                 if value_mask.intersects(x::ConfigWindowMask::HEIGHT) {
                     client.height = height;
-                    println!("Height {}", height);
                 }
 
                 client.x = self.x

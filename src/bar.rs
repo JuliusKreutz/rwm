@@ -1,5 +1,6 @@
 use std::ptr::NonNull;
 
+use pangocairo::pango;
 use xcb::{x, Xid};
 
 use crate::{config, ffi};
@@ -29,6 +30,7 @@ impl Tags {
 }
 
 pub struct Bar {
+    window: x::Window,
     width: u16,
     context: cairo::Context,
     main_layout: pango::Layout,
@@ -108,6 +110,7 @@ impl Bar {
         );
 
         Bar {
+            window,
             width,
             context,
             main_layout,
@@ -120,6 +123,12 @@ impl Bar {
 
     pub fn init(&self) {
         self.draw_tags(0, Vec::new());
+    }
+
+    pub fn clean(&self, connection: &xcb::Connection) {
+        connection.send_request(&x::UnmapWindow {
+            window: self.window,
+        });
     }
 
     pub fn draw_tags(&self, selected: usize, full_workspaces: Vec<usize>) {
