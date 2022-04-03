@@ -4,7 +4,7 @@
 
 You will need some kind of rust compiler, xorg-server, xcb-util-cursor and pango though you probably have that installed already.
 
-`sudo pacman -S xorg-server xcb-util-cursor pango`
+`sudo pacman -S rustup xorg-server xcb-util-cursor pango`
 
 ## Configuration
 
