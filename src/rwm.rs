@@ -338,7 +338,11 @@ impl Rwm {
 
     pub fn run(&mut self) {
         loop {
-            match self.connection.wait_for_event() {
+            let res = self.connection.wait_for_event();
+
+            println!("{:?}", res);
+
+            match res {
                 Ok(event) => match event {
                     xcb::Event::X(x::Event::KeyPress(event)) => self.key_press(event),
                     xcb::Event::X(x::Event::ButtonPress(event)) => self.button_press(event),
@@ -406,44 +410,53 @@ impl Rwm {
             ],
         });
 
-        let property = self
-            .get_property(
-                event.window(),
-                x::ATOM_WM_NORMAL_HINTS,
-                x::ATOM_WM_SIZE_HINTS,
-            )
-            .unwrap();
+        if let Ok(property) = self.get_property(
+            event.window(),
+            x::ATOM_WM_NORMAL_HINTS,
+            x::ATOM_WM_SIZE_HINTS,
+        ) {
+            let data: &[u32] = property.value();
 
-        let data: &[u32] = property.value();
-        let x = data[1] as i16;
-        let y = data[2] as i16;
-        let min_width = data[5] as u16;
-        let min_height = data[6] as u16;
-        let max_width = data[7] as u16;
-        let max_height = data[8] as u16;
+            if data.len() > 8 {
+                let x = data[1] as i16;
+                let y = data[2] as i16;
+                let min_width = data[5] as u16;
+                let min_height = data[6] as u16;
+                let max_width = data[7] as u16;
+                let max_height = data[8] as u16;
 
-        let fixed =
-            min_width > 0 && min_height > 0 && min_width == max_width && min_height == max_height;
+                let fixed = min_width > 0
+                    && min_height > 0
+                    && min_width == max_width
+                    && min_height == max_height;
 
-        if fixed {
-            self.monitors[self.monitor].map(
-                &self.connection,
-                Client::new(event.window(), x, y, min_width, min_height, false, true),
-            );
-        } else {
-            let geometry_cookie = self.connection.send_request(&x::GetGeometry {
-                drawable: x::Drawable::Window(event.window()),
-            });
+                if fixed {
+                    self.monitors[self.monitor].map(
+                        &self.connection,
+                        Client::new(event.window(), x, y, min_width, min_height, false, true),
+                    );
 
-            let geometry = self.connection.wait_for_reply(geometry_cookie).unwrap();
+                    self.connection.send_request(&x::MapWindow {
+                        window: event.window(),
+                    });
 
-            let fullscreen = self
-                .get_atom_property(event.window(), self.atoms[_NET_WM_STATE])
-                .contains(&self.atoms[_NET_WM_STATE_FULLSCREEN]);
-            let floating = self
-                .get_atom_property(event.window(), self.atoms[_NET_WM_WINDOW_TYPE])
-                .contains(&self.atoms[_NET_WM_WINDOW_TYPE_DIALOG]);
+                    return;
+                }
+            }
+        }
 
+        let geometry_cookie = self.connection.send_request(&x::GetGeometry {
+            drawable: x::Drawable::Window(event.window()),
+        });
+
+        let fullscreen = self
+            .get_atom_property(event.window(), self.atoms[_NET_WM_STATE])
+            .contains(&self.atoms[_NET_WM_STATE_FULLSCREEN]);
+        let floating = self
+            .get_atom_property(event.window(), self.atoms[_NET_WM_WINDOW_TYPE])
+            .contains(&self.atoms[_NET_WM_WINDOW_TYPE_DIALOG]);
+
+        if let Ok(geometry) = self.connection.wait_for_reply(geometry_cookie) {
             self.monitors[self.monitor].map(
                 &self.connection,
                 Client::new(
@@ -455,6 +468,11 @@ impl Rwm {
                     fullscreen,
                     floating,
                 ),
+            );
+        } else {
+            self.monitors[self.monitor].map(
+                &self.connection,
+                Client::new(event.window(), 0, 0, 0, 0, fullscreen, floating),
             );
         }
 
