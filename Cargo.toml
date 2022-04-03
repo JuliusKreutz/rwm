@@ -11,7 +11,7 @@ repository = "https://github.com/JuliusKreutz/rwm"
 
 [profile.release]
 lto = true
-strip = "symbols"
+strip = true
 panic = "abort"
 
 [dependencies]

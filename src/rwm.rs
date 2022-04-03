@@ -338,11 +338,7 @@ impl Rwm {
 
     pub fn run(&mut self) {
         loop {
-            let res = self.connection.wait_for_event();
-
-            println!("{:?}", res);
-
-            match res {
+            match self.connection.wait_for_event() {
                 Ok(event) => match event {
                     xcb::Event::X(x::Event::KeyPress(event)) => self.key_press(event),
                     xcb::Event::X(x::Event::ButtonPress(event)) => self.button_press(event),
@@ -386,9 +382,9 @@ impl Rwm {
     }
 
     fn button_press(&mut self, event: x::ButtonPressEvent) {
-        let key_combo = ButtonCombo::new(event.state(), event.detail());
+        let button_combo = ButtonCombo::new(event.state(), event.detail());
 
-        if let Some(command) = self.buttons.get(&key_combo) {
+        if let Some(command) = self.buttons.get(&button_combo) {
             command(self);
         }
     }
@@ -410,7 +406,7 @@ impl Rwm {
             ],
         });
 
-        if let Ok(property) = self.get_property(
+        let fixed = if let Ok(property) = self.get_property(
             event.window(),
             x::ATOM_WM_NORMAL_HINTS,
             x::ATOM_WM_SIZE_HINTS,
@@ -439,41 +435,47 @@ impl Rwm {
                     self.connection.send_request(&x::MapWindow {
                         window: event.window(),
                     });
-
-                    return;
                 }
+
+                fixed
+            } else {
+                false
             }
-        }
-
-        let geometry_cookie = self.connection.send_request(&x::GetGeometry {
-            drawable: x::Drawable::Window(event.window()),
-        });
-
-        let fullscreen = self
-            .get_atom_property(event.window(), self.atoms[_NET_WM_STATE])
-            .contains(&self.atoms[_NET_WM_STATE_FULLSCREEN]);
-        let floating = self
-            .get_atom_property(event.window(), self.atoms[_NET_WM_WINDOW_TYPE])
-            .contains(&self.atoms[_NET_WM_WINDOW_TYPE_DIALOG]);
-
-        if let Ok(geometry) = self.connection.wait_for_reply(geometry_cookie) {
-            self.monitors[self.monitor].map(
-                &self.connection,
-                Client::new(
-                    event.window(),
-                    geometry.x(),
-                    geometry.y(),
-                    geometry.width(),
-                    geometry.height(),
-                    fullscreen,
-                    floating,
-                ),
-            );
         } else {
-            self.monitors[self.monitor].map(
-                &self.connection,
-                Client::new(event.window(), 0, 0, 0, 0, fullscreen, floating),
-            );
+            false
+        };
+
+        if !fixed {
+            let geometry_cookie = self.connection.send_request(&x::GetGeometry {
+                drawable: x::Drawable::Window(event.window()),
+            });
+
+            let fullscreen = self
+                .get_atom_property(event.window(), self.atoms[_NET_WM_STATE])
+                .contains(&self.atoms[_NET_WM_STATE_FULLSCREEN]);
+            let floating = self
+                .get_atom_property(event.window(), self.atoms[_NET_WM_WINDOW_TYPE])
+                .contains(&self.atoms[_NET_WM_WINDOW_TYPE_DIALOG]);
+
+            if let Ok(geometry) = self.connection.wait_for_reply(geometry_cookie) {
+                self.monitors[self.monitor].map(
+                    &self.connection,
+                    Client::new(
+                        event.window(),
+                        geometry.x(),
+                        geometry.y(),
+                        geometry.width(),
+                        geometry.height(),
+                        fullscreen,
+                        floating,
+                    ),
+                );
+            } else {
+                self.monitors[self.monitor].map(
+                    &self.connection,
+                    Client::new(event.window(), 0, 0, 0, 0, fullscreen, floating),
+                );
+            }
         }
 
         self.connection.send_request(&x::MapWindow {
