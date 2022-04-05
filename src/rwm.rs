@@ -330,7 +330,7 @@ impl Rwm {
             width: 1,
             height: 1,
             border_width: 0,
-            class: x::WindowClass::CopyFromParent,
+            class: x::WindowClass::InputOutput,
             visual: screen.root_visual(),
             value_list: &[],
         });
