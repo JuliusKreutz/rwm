@@ -18,10 +18,16 @@ atoms!(
     UTF8_STRING,
     WM_PROTOCOLS,
     WM_DELETE_WINDOW,
+    WM_TAKE_FOCUS,
+    _NET_WM_NAME,
+    _NET_SUPPORTING_WM_CHECK,
+    _NET_CLIENT_LIST,
     _NET_WM_WINDOW_TYPE,
     _NET_WM_WINDOW_TYPE_DIALOG,
     _NET_WM_STATE,
     _NET_WM_STATE_FULLSCREEN,
+    _NET_ACTIVE_WINDOW,
+    _NET_SUPPORTED,
 );
 
 #[derive(Debug)]
@@ -131,28 +137,7 @@ impl Rwm {
 
     pub fn kill(&mut self) {
         if let Some(window) = self.focused {
-            if self
-                .get_atom_property(window, self.atoms[WM_PROTOCOLS])
-                .contains(&self.atoms[WM_DELETE_WINDOW])
-            {
-                let delete_event = x::ClientMessageEvent::new(
-                    window,
-                    self.atoms[WM_PROTOCOLS],
-                    x::ClientMessageData::Data32([
-                        self.atoms[WM_DELETE_WINDOW].resource_id(),
-                        x::CURRENT_TIME,
-                        0,
-                        0,
-                        0,
-                    ]),
-                );
-                self.connection.send_request(&x::SendEvent {
-                    propagate: false,
-                    destination: x::SendEventDest::Window(window),
-                    event_mask: x::EventMask::NO_EVENT,
-                    event: &delete_event,
-                });
-            } else {
+            if !self.send_event(window, self.atoms[WM_DELETE_WINDOW]) {
                 self.connection.send_request(&x::KillClient {
                     resource: window.resource_id(),
                 });
@@ -333,6 +318,60 @@ impl Rwm {
             mode: x::CloseDown::DestroyAll,
         });
 
+        let screen = self.connection.get_setup().roots().next().unwrap();
+
+        let window = self.connection.generate_id();
+        self.connection.send_request(&x::CreateWindow {
+            depth: screen.root_depth(),
+            wid: window,
+            parent: screen.root(),
+            x: 0,
+            y: 0,
+            width: 1,
+            height: 1,
+            border_width: 0,
+            class: x::WindowClass::CopyFromParent,
+            visual: screen.root_visual(),
+            value_list: &[],
+        });
+
+        self.connection.send_request(&x::ChangeProperty {
+            mode: x::PropMode::Replace,
+            window,
+            property: self.atoms[_NET_SUPPORTING_WM_CHECK],
+            r#type: x::ATOM_WINDOW,
+            data: &[window],
+        });
+
+        self.connection.send_request(&x::ChangeProperty {
+            mode: x::PropMode::Replace,
+            window,
+            property: self.atoms[_NET_WM_NAME],
+            r#type: self.atoms[UTF8_STRING],
+            data: b"rwm",
+        });
+
+        self.connection.send_request(&x::ChangeProperty {
+            mode: x::PropMode::Replace,
+            window: self.root,
+            property: self.atoms[_NET_SUPPORTING_WM_CHECK],
+            r#type: x::ATOM_WINDOW,
+            data: &[window],
+        });
+
+        self.connection.send_request(&x::ChangeProperty {
+            mode: x::PropMode::Replace,
+            window: self.root,
+            property: self.atoms[_NET_SUPPORTED],
+            r#type: x::ATOM_ATOM,
+            data: &self.atoms,
+        });
+
+        self.connection.send_request(&x::DeleteProperty {
+            window: self.root,
+            property: self.atoms[_NET_CLIENT_LIST],
+        });
+
         self.connection.flush().unwrap();
     }
 
@@ -344,8 +383,8 @@ impl Rwm {
                     xcb::Event::X(x::Event::ButtonPress(event)) => self.button_press(event),
                     xcb::Event::X(x::Event::ButtonRelease(_)) => self.button_release(),
                     xcb::Event::X(x::Event::MapRequest(event)) => self.map_request(event),
-                    xcb::Event::X(x::Event::UnmapNotify(event)) => self.unmap_notify(event),
-                    xcb::Event::X(x::Event::DestroyNotify(event)) => self.destroy_notify(event),
+                    xcb::Event::X(x::Event::UnmapNotify(event)) => self.unmap(event.window()),
+                    xcb::Event::X(x::Event::DestroyNotify(event)) => self.unmap(event.window()),
                     xcb::Event::X(x::Event::ConfigureRequest(event)) => {
                         self.configure_request(event)
                     }
@@ -478,30 +517,44 @@ impl Rwm {
             }
         }
 
+        self.connection.send_request(&x::ChangeProperty {
+            mode: x::PropMode::Append,
+            window: self.root,
+            property: self.atoms[_NET_CLIENT_LIST],
+            r#type: x::ATOM_WINDOW,
+            data: &[event.window()],
+        });
+
         self.connection.send_request(&x::MapWindow {
             window: event.window(),
         });
     }
 
-    fn unmap_notify(&mut self, event: x::UnmapNotifyEvent) {
-        if Some(event.window()) == self.focused {
+    fn unmap(&mut self, window: x::Window) {
+        if Some(window) == self.focused {
             self.focused = None;
             self.draw_status();
         }
 
         for monitor in &mut self.monitors {
-            monitor.unmap(&self.connection, event.window());
-        }
-    }
-
-    fn destroy_notify(&mut self, event: x::DestroyNotifyEvent) {
-        if Some(event.window()) == self.focused {
-            self.focused = None;
-            self.draw_status();
+            monitor.unmap(&self.connection, window);
         }
 
-        for monitor in &mut self.monitors {
-            monitor.unmap(&self.connection, event.window());
+        self.connection.send_request(&x::DeleteProperty {
+            window: self.root,
+            property: self.atoms[_NET_CLIENT_LIST],
+        });
+
+        for monitor in &self.monitors {
+            for client in monitor.clients() {
+                self.connection.send_request(&x::ChangeProperty {
+                    mode: x::PropMode::Append,
+                    window: self.root,
+                    property: self.atoms[_NET_CLIENT_LIST],
+                    r#type: x::ATOM_WINDOW,
+                    data: &[client],
+                });
+            }
         }
     }
 
@@ -633,6 +686,21 @@ impl Rwm {
                 focus: window,
                 time: x::CURRENT_TIME,
             });
+
+            self.connection.send_request(&x::ChangeProperty {
+                mode: x::PropMode::Replace,
+                window: self.root,
+                property: self.atoms[_NET_ACTIVE_WINDOW],
+                r#type: x::ATOM_WINDOW,
+                data: &[window],
+            });
+
+            self.send_event(window, self.atoms[WM_TAKE_FOCUS]);
+        } else {
+            self.connection.send_request(&x::DeleteProperty {
+                window: self.root,
+                property: self.atoms[_NET_ACTIVE_WINDOW],
+            });
         }
 
         self.focused = focused;
@@ -729,6 +797,29 @@ impl Rwm {
             property_reply.value().to_vec()
         } else {
             vec![]
+        }
+    }
+
+    fn send_event(&self, window: x::Window, atom: x::Atom) -> bool {
+        if self
+            .get_atom_property(window, self.atoms[WM_PROTOCOLS])
+            .contains(&atom)
+        {
+            let event = x::ClientMessageEvent::new(
+                window,
+                self.atoms[WM_PROTOCOLS],
+                x::ClientMessageData::Data32([atom.resource_id(), x::CURRENT_TIME, 0, 0, 0]),
+            );
+            self.connection.send_request(&x::SendEvent {
+                propagate: false,
+                destination: x::SendEventDest::Window(window),
+                event_mask: x::EventMask::NO_EVENT,
+                event: &event,
+            });
+
+            true
+        } else {
+            false
         }
     }
 

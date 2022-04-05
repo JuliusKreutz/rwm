@@ -32,6 +32,7 @@ keys!(
     (MODSHIFT, keys::XK_Return, spawn!("st")),
     (MOD, keys::XK_p, spawn!("rmenu_run")),
     (MOD, keys::XK_e, spawn!("microsoft-edge-stable")),
+    (MOD, keys::XK_s, spawn!("shot")),
     (MODSHIFT, keys::XK_c, kill!()),
     (MOD, keys::XK_Return, swap!()),
     (MOD, keys::XK_f, toggle_fullscreen!()),

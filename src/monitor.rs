@@ -52,6 +52,14 @@ impl Monitor {
         self.height
     }
 
+    pub fn clients(&self) -> Vec<x::Window> {
+        self.tags
+            .iter()
+            .flatten()
+            .map(|client| client.window)
+            .collect()
+    }
+
     pub fn contains(&self, x: i16, y: i16) -> bool {
         x >= self.x
             && x < self.x + self.width as i16
