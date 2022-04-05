@@ -1,5 +1,7 @@
 # rwm
 
+Rwm is a window manager written in rust for fun. It is heavily based on [dwm](https://dwm.suckless.org/). 
+
 ## Dependencies:
 
 You will need some kind of rust compiler, xorg-server, xcb-util-cursor and pango though you probably have that installed already.
