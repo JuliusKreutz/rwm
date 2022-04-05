@@ -16,6 +16,7 @@ use crate::{
 
 atoms!(
     UTF8_STRING,
+    WM_STATE,
     WM_PROTOCOLS,
     WM_DELETE_WINDOW,
     WM_TAKE_FOCUS,
@@ -523,6 +524,14 @@ impl Rwm {
             property: self.atoms[_NET_CLIENT_LIST],
             r#type: x::ATOM_WINDOW,
             data: &[event.window()],
+        });
+
+        self.connection.send_request(&x::ChangeProperty {
+            mode: x::PropMode::Replace,
+            window: event.window(),
+            property: self.atoms[WM_STATE],
+            r#type: self.atoms[WM_STATE],
+            data: &[1u32],
         });
 
         self.connection.send_request(&x::MapWindow {
