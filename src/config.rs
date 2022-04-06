@@ -47,6 +47,7 @@ keys!(
     (MOD, keys::XK_6, view!(5)),
     (MOD, keys::XK_7, view!(6)),
     (MOD, keys::XK_8, view!(7)),
+    (MOD, keys::XK_9, view!(8)),
     (MODSHIFT, keys::XK_1, tag!(0)),
     (MODSHIFT, keys::XK_2, tag!(1)),
     (MODSHIFT, keys::XK_3, tag!(2)),
