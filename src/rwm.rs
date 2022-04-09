@@ -776,7 +776,17 @@ impl Rwm {
                 }
             }
         } else {
-            self.die("Xinerama not active");
+            if self.monitors.len() == 0 {
+                let screen = self.connection.get_setup().roots().next().unwrap();
+
+                self.monitors.push(Monitor::new(
+                    &self.connection,
+                    0,
+                    0,
+                    screen.width_in_pixels(),
+                    screen.height_in_pixels(),
+                ));
+            }
         }
 
         if dirty {
@@ -863,15 +873,5 @@ impl Rwm {
                 monitor.draw_status("", &status);
             }
         }
-    }
-
-    fn die(&mut self, message: &str) {
-        for child in self.children.values_mut() {
-            let _ = child.kill();
-        }
-
-        eprintln!("{}", message);
-
-        exit(1);
     }
 }
