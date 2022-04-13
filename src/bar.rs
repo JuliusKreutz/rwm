@@ -32,6 +32,7 @@ impl Tags {
 pub struct Bar {
     window: x::Window,
     width: u16,
+    surface: cairo::XCBSurface,
     context: cairo::Context,
     main_layout: pango::Layout,
     tag_layout: pango::Layout,
@@ -112,6 +113,7 @@ impl Bar {
         Bar {
             window,
             width,
+            surface,
             context,
             main_layout,
             tag_layout,
@@ -125,7 +127,27 @@ impl Bar {
         self.draw_tags(0, Vec::new());
     }
 
-    pub fn clean(&self, connection: &xcb::Connection) {
+    pub fn update(&mut self, connection: &xcb::Connection, x: i16, y: i16, width: u16) {
+        self.width = width;
+
+        connection.send_request(&x::ConfigureWindow {
+            window: self.window,
+            value_list: &[
+                x::ConfigWindow::X(x as i32),
+                x::ConfigWindow::Y(y as i32),
+                x::ConfigWindow::Width(width as u32),
+            ],
+        });
+
+        self.surface
+            .set_size(width as i32, config::BAR_HEIGHT as i32)
+            .unwrap();
+        self.context
+            .set_source_surface(&self.surface, x as f64, y as f64)
+            .unwrap();
+    }
+
+    pub fn clean(self, connection: &xcb::Connection) {
         connection.send_request(&x::UnmapWindow {
             window: self.window,
         });

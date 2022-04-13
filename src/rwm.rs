@@ -775,21 +775,21 @@ impl Rwm {
                         .transfer(&self.connection, &mut self.monitors[0]);
                 }
             }
-        } else {
-            if self.monitors.len() == 0 {
-                let screen = self.connection.get_setup().roots().next().unwrap();
+        } else if self.monitors.is_empty() {
+            let screen = self.connection.get_setup().roots().next().unwrap();
 
-                self.monitors.push(Monitor::new(
-                    &self.connection,
-                    0,
-                    0,
-                    screen.width_in_pixels(),
-                    screen.height_in_pixels(),
-                ));
-            }
+            self.monitors.push(Monitor::new(
+                &self.connection,
+                0,
+                0,
+                screen.width_in_pixels(),
+                screen.height_in_pixels(),
+            ));
         }
 
         if dirty {
+            self.draw_status();
+
             self.monitor = 0;
         }
     }

@@ -75,9 +75,7 @@ impl Monitor {
         width: u16,
         height: u16,
     ) {
-        self.bar.clean(connection);
-        self.bar = Bar::new(connection, x, y, width);
-        self.bar.init();
+        self.bar.update(connection, x, y, width);
 
         for client in &mut self
             .tags
@@ -103,6 +101,7 @@ impl Monitor {
         self.width = width;
         self.height = height;
 
+        self.draw_tags();
         self.arrange(connection);
     }
 
