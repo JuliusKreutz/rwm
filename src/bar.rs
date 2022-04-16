@@ -180,19 +180,15 @@ impl Bar {
     }
 
     pub fn draw_status(&self, name: &str, status: &str) {
-        self.main_layout.set_text(name);
-
-        let name_width = self.width
-            - self.tags.width
-            - ((self.main_layout.size().0 / pango::SCALE) as u16 + 2 * crate::config::TEXT_MARGIN);
-
-        self.draw_rectangle(self.tags.width, name_width, crate::config::BAR_HL_COLOR);
-        self.draw_main_text(self.tags.width, name, crate::config::BAR_TEXT_HL_COLOR);
-
         self.main_layout.set_text(status);
+
         let status_width =
             (self.main_layout.size().0 / pango::SCALE) as u16 + 2 * crate::config::TEXT_MARGIN;
         let status_position = self.width - status_width;
+        let name_width = self.width - self.tags.width - status_width;
+
+        self.draw_rectangle(self.tags.width, name_width, crate::config::BAR_HL_COLOR);
+        self.draw_main_text(self.tags.width, name, crate::config::BAR_TEXT_HL_COLOR);
 
         self.draw_rectangle(status_position, status_width, crate::config::BAR_COLOR);
         self.draw_main_text(status_position, status, crate::config::BAR_TEXT_COLOR);
