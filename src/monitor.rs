@@ -518,6 +518,8 @@ impl Monitor {
                     client.height,
                 );
             }
+
+            configure(connection, client);
         }
     }
 
