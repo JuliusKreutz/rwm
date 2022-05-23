@@ -8,7 +8,7 @@ use crate::{
 
 tags!("", "", "", "", "", "", "", "", "");
 
-pub const FONT: &str = "JetBrains Mono 13";
+pub const FONT: &str = "Comic Code Ligatures 13";
 pub const TAG_FONT: &str =
     "Font Awesome 6 Free Solid, Font Awesome 6 Free, Font Awesome 6 Brands 15";
 
