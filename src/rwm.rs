@@ -143,9 +143,6 @@ impl Rwm {
                     resource: window.resource_id(),
                 });
             }
-
-            self.children
-                .retain(|_, child| child.try_wait().map_or(true, |ret| ret.is_none()));
         }
     }
 
@@ -398,6 +395,9 @@ impl Rwm {
                 },
                 Err(err) => println!("{:?}", err),
             }
+
+            self.children
+                .retain(|_, child| child.try_wait().map_or(true, |ret| ret.is_none()));
 
             let _ = self.connection.flush();
         }
